@@ -7,8 +7,12 @@ const CRYPTO_URL =
 const FIAT_URL =
   "https://raw.githubusercontent.com/HosseinOdd/Navasan-API/main/data/fiat.json";
 
-const GOLD_IRAN_URL =
+const GOLD_URL =
   "https://raw.githubusercontent.com/HosseinOdd/Navasan-API/main/data/gold.json";
+
+const REFRESH_INTERVAL = 5 * 60 * 1000;
+const CRYPTO_CACHE_TIME = 5 * 60 * 1000;
+const IRAN_CACHE_TIME = 30 * 60 * 1000;
 
 const elements = {
   goldOuncePrice: document.getElementById("goldOuncePrice"),
@@ -61,9 +65,7 @@ function formatRial(value) {
 }
 
 function setText(element, text) {
-  if (!element) {
-    return;
-  }
+  if (!element) return;
 
   element.textContent = text;
   element.classList.remove("skeleton");
@@ -80,18 +82,14 @@ function setStatus(type, message) {
 }
 
 function setLoading(isLoading) {
-  if (!elements.refreshButton) {
-    return;
-  }
+  if (!elements.refreshButton) return;
 
   elements.refreshButton.disabled = isLoading;
   elements.refreshButton.classList.toggle("is-loading", isLoading);
 }
 
 function showChange(element, percentage) {
-  if (!element) {
-    return;
-  }
+  if (!element) return;
 
   const change = Number(percentage);
 
@@ -110,131 +108,149 @@ function showChange(element, percentage) {
     : "change-badge negative";
 }
 
-function parseNumber(value) {
-  if (value === null || value === undefined) {
-    return NaN;
+function readCache(key, maxAge) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(key));
+
+    if (!saved || Date.now() - saved.savedAt > maxAge) {
+      return null;
+    }
+
+    return saved.data;
+  } catch {
+    return null;
+  }
+}
+
+function readExpiredCache(key) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(key));
+    return saved?.data ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function saveCache(key, data) {
+  try {
+    localStorage.setItem(
+      key,
+      JSON.stringify({
+        data,
+        savedAt: Date.now()
+      })
+    );
+  } catch {
+    // The website can continue if localStorage is unavailable.
+  }
+}
+
+async function fetchJson(url, cacheKey, maxAge) {
+  const freshCache = readCache(cacheKey, maxAge);
+
+  if (freshCache) {
+    return freshCache;
   }
 
-  /*
-    Handles values such as:
-    "1,234,567"
-    "1٬234٬567"
-    "1,234,567 تومان"
-  */
-  return Number(String(value).replace(/[^\d.-]/g, ""));
+  try {
+    const response = await fetch(url, {
+      headers: {
+        Accept: "application/json"
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    saveCache(cacheKey, data);
+
+    return data;
+  } catch (error) {
+    const oldCache = readExpiredCache(cacheKey);
+
+    if (oldCache) {
+      console.warn(`${cacheKey}: using cached data`, error);
+      return oldCache;
+    }
+
+    throw error;
+  }
 }
 
 async function getCryptoPrices() {
-  const response = await fetch(CRYPTO_URL);
+  const data = await fetchJson(
+    CRYPTO_URL,
+    "market-crypto",
+    CRYPTO_CACHE_TIME
+  );
 
-  if (!response.ok) {
-    throw new Error(`CoinGecko error: ${response.status}`);
-  }
+  const result = {
+    bitcoin: Number(data?.bitcoin?.usd),
+    ethereum: Number(data?.ethereum?.usd),
+    dogecoin: Number(data?.dogecoin?.usd),
 
-  const data = await response.json();
-
-  console.log("CoinGecko:", data);
-
-  const bitcoin = Number(data?.bitcoin?.usd);
-  const ethereum = Number(data?.ethereum?.usd);
-  const dogecoin = Number(data?.dogecoin?.usd);
-
-  if (
-    !Number.isFinite(bitcoin) ||
-    !Number.isFinite(ethereum) ||
-    !Number.isFinite(dogecoin)
-  ) {
-    throw new Error("CoinGecko returned invalid prices.");
-  }
-
-  return {
-    bitcoin,
-    ethereum,
-    dogecoin,
     bitcoinChange: Number(data?.bitcoin?.usd_24h_change),
     ethereumChange: Number(data?.ethereum?.usd_24h_change),
     dogecoinChange: Number(data?.dogecoin?.usd_24h_change)
   };
+
+  if (
+    !Number.isFinite(result.bitcoin) ||
+    !Number.isFinite(result.ethereum) ||
+    !Number.isFinite(result.dogecoin)
+  ) {
+    throw new Error("CoinGecko returned invalid prices.");
+  }
+
+  return result;
 }
 
 async function getUsdToman() {
-  const response = await fetch(FIAT_URL);
+  const data = await fetchJson(
+    FIAT_URL,
+    "market-fiat",
+    IRAN_CACHE_TIME
+  );
 
-  if (!response.ok) {
-    throw new Error(`Iran currency source error: ${response.status}`);
-  }
+  const usdToman = Number(data?.usd?.value);
 
-  const data = await response.json();
-
-  console.log("Iran fiat full response:", data);
-
-  const rawUsdValue =
-    data?.usd?.sell ??
-    data?.usd?.value ??
-    data?.usd?.price ??
-    data?.usd;
-
-  const usdToman = parseNumber(rawUsdValue);
-
-  console.log("USD raw value:", rawUsdValue);
-  console.log("USD parsed toman:", usdToman);
-
-  if (
-    !Number.isFinite(usdToman) ||
-    usdToman < 10000 ||
-    usdToman > 1000000
-  ) {
-    throw new Error(`USD/Toman invalid. Raw value: ${rawUsdValue}`);
+  if (!Number.isFinite(usdToman) || usdToman <= 0) {
+    throw new Error("USD/Toman value is invalid.");
   }
 
   return usdToman;
 }
 
-async function getIran18KGoldToman() {
-  const response = await fetch(GOLD_IRAN_URL);
+async function getGoldPrices() {
+  const data = await fetchJson(
+    GOLD_URL,
+    "market-gold",
+    IRAN_CACHE_TIME
+  );
 
-  if (!response.ok) {
-    throw new Error(`Iran gold source error: ${response.status}`);
+  const gold18Toman = Number(data?.["18ayar"]?.value);
+  const goldOunceUsd = Number(data?.usd_xau?.value);
+
+  if (!Number.isFinite(gold18Toman) || gold18Toman <= 0) {
+    throw new Error("18K gold value is invalid.");
   }
 
-  const data = await response.json();
-
-  console.log("Iran gold full response:", data);
-
-  /*
-    This source calls 18K gold:
-    bub_18ayar
-  */
-  const gold18Data = data?.bub_18ayar;
-
-  console.log("18K gold object:", gold18Data);
-
-  const rawGold18Value =
-    gold18Data?.value ??
-    gold18Data?.price ??
-    gold18Data?.sell ??
-    gold18Data?.buy ??
-    gold18Data;
-
-  const gold18Toman = parseNumber(rawGold18Value);
-
-  console.log("18K gold raw value:", rawGold18Value);
-  console.log("18K gold parsed toman:", gold18Toman);
-
-  if (
-    !Number.isFinite(gold18Toman) ||
-    gold18Toman < 100000 ||
-    gold18Toman > 100000000
-  ) {
-    throw new Error(`18K gold invalid. Raw value: ${rawGold18Value}`);
+  if (!Number.isFinite(goldOunceUsd) || goldOunceUsd <= 0) {
+    throw new Error("International gold value is invalid.");
   }
 
-  return gold18Toman;
+  return {
+    gold18Toman,
+    goldOunceUsd
+  };
 }
 
 function renderCrypto(crypto) {
-  setText(elements.bitcoinPrice, formatUsd(crypto.bitcoin, 2));
-  setText(elements.ethereumPrice, formatUsd(crypto.ethereum, 2));
+  setText(elements.bitcoinPrice, formatUsd(crypto.bitcoin));
+  setText(elements.ethereumPrice, formatUsd(crypto.ethereum));
   setText(elements.dogecoinPrice, formatUsd(crypto.dogecoin, 5));
 
   showChange(elements.bitcoinChange, crypto.bitcoinChange);
@@ -242,104 +258,110 @@ function renderCrypto(crypto) {
   showChange(elements.dogecoinChange, crypto.dogecoinChange);
 }
 
-function renderIranPrices(usdToman, gold18Toman) {
+function renderUsd(usdToman) {
   const usdRial = usdToman * 10;
-  const gold18Rial = gold18Toman * 10;
 
   setText(elements.usdIrrPrice, formatRial(usdRial));
   setText(elements.usdIrrToman, formatToman(usdToman));
-
-  setText(elements.gold18Price, formatRial(gold18Rial));
-  setText(elements.gold18Toman, formatToman(gold18Toman));
-
-  /*
-    This free source does not include
-    international gold ounce in USD.
-  */
-  setText(elements.goldOuncePrice, "Unavailable");
-  setText(elements.goldUpdatedAt, "Iran market JSON");
-
-  setText(elements.formulaGoldOunce, "—");
   setText(elements.formulaUsdIrr, formatNumber(usdRial));
-  setText(elements.formulaGold18, formatRial(gold18Rial));
+}
+
+function renderGold(gold) {
+  const gold18Rial = gold.gold18Toman * 10;
+
+  setText(
+    elements.goldOuncePrice,
+    formatUsd(gold.goldOunceUsd)
+  );
+
+  setText(
+    elements.gold18Price,
+    formatRial(gold18Rial)
+  );
+
+  setText(
+    elements.gold18Toman,
+    formatToman(gold.gold18Toman)
+  );
+
+  setText(
+    elements.formulaGoldOunce,
+    formatUsd(gold.goldOunceUsd)
+  );
+
+  setText(
+    elements.formulaGold18,
+    formatRial(gold18Rial)
+  );
+
+  setText(elements.goldUpdatedAt, "Live market");
 }
 
 function updateLastUpdated() {
-  if (!elements.lastUpdated) {
-    return;
-  }
-
-  const date = new Intl.DateTimeFormat("en-US", {
+  const formatted = new Intl.DateTimeFormat("en-US", {
     dateStyle: "medium",
     timeStyle: "medium"
   }).format(new Date());
 
-  elements.lastUpdated.textContent = `Last update: ${date}`;
+  setText(
+    elements.lastUpdated,
+    `Last update: ${formatted}`
+  );
 }
 
 async function loadMarketData() {
   setLoading(true);
   setStatus("loading", "Updating prices...");
 
-  try {
-    const results = await Promise.allSettled([
-      getCryptoPrices(),
-      getUsdToman(),
-      getIran18KGoldToman()
-    ]);
+  const results = await Promise.allSettled([
+    getCryptoPrices(),
+    getUsdToman(),
+    getGoldPrices()
+  ]);
 
-    const cryptoResult = results[0];
-    const usdResult = results[1];
-    const goldResult = results[2];
+  const [cryptoResult, usdResult, goldResult] = results;
 
-    if (cryptoResult.status === "fulfilled") {
-      renderCrypto(cryptoResult.value);
-    } else {
-      console.error("Crypto failed:", cryptoResult.reason);
-    }
+  if (cryptoResult.status === "fulfilled") {
+    renderCrypto(cryptoResult.value);
+  } else {
+    console.error("Crypto failed:", cryptoResult.reason);
+  }
 
-    if (
-      usdResult.status === "fulfilled" &&
-      goldResult.status === "fulfilled"
-    ) {
-      renderIranPrices(
-        usdResult.value,
-        goldResult.value
-      );
-    } else {
-      if (usdResult.status === "rejected") {
-        console.error("USD/Toman failed:", usdResult.reason);
-      }
+  if (usdResult.status === "fulfilled") {
+    renderUsd(usdResult.value);
+  } else {
+    console.error("USD/Toman failed:", usdResult.reason);
+  }
 
-      if (goldResult.status === "rejected") {
-        console.error("18K gold failed:", goldResult.reason);
-      }
-    }
+  if (goldResult.status === "fulfilled") {
+    renderGold(goldResult.value);
+  } else {
+    console.error("Gold failed:", goldResult.reason);
+  }
 
-    updateLastUpdated();
+  updateLastUpdated();
+  setLoading(false);
 
-    const allSuccessful = results.every(
-      (result) => result.status === "fulfilled"
-    );
+  const successful = results.filter(
+    result => result.status === "fulfilled"
+  ).length;
 
-    setStatus(
-      allSuccessful ? "" : "error",
-      allSuccessful
-        ? "Market updated"
-        : "Some prices could not load"
-    );
-  } catch (error) {
-    console.error("Market loading error:", error);
-    setStatus("error", "Could not load market data");
-  } finally {
-    setLoading(false);
+  if (successful === 3) {
+    setStatus("", "All markets updated");
+  } else if (successful > 0) {
+    setStatus("error", "Some prices could not update");
+  } else {
+    setStatus("error", "Could not load market prices");
   }
 }
 
 if (elements.refreshButton) {
-  elements.refreshButton.addEventListener("click", loadMarketData);
+  elements.refreshButton.addEventListener(
+    "click",
+    loadMarketData
+  );
 }
 
 loadMarketData();
 
-setInterval(loadMarketData, 60 * 1000);
+setInterval(loadMarketData, REFRESH_INTERVAL);
