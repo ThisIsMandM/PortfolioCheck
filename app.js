@@ -28,17 +28,17 @@ const elements = {
   lastUpdated: document.getElementById("lastUpdated")
 };
 
-function formatUsd(value, maximumFractionDigits = 2) {
+function formatUsd(value, digits = 2) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
-    maximumFractionDigits
+    maximumFractionDigits: digits
   }).format(value);
 }
 
-function formatNumber(value, maximumFractionDigits = 0) {
+function formatNumber(value, digits = 0) {
   return new Intl.NumberFormat("en-US", {
-    maximumFractionDigits
+    maximumFractionDigits: digits
   }).format(value);
 }
 
@@ -54,9 +54,9 @@ function removeSkeleton(element) {
   element.classList.remove("skeleton");
 }
 
-function setStatus(type, message) {
+function setStatus(type, text) {
   elements.statusDot.className = `status-dot ${type}`;
-  elements.statusText.textContent = message;
+  elements.statusText.textContent = text;
 }
 
 function setLoading(isLoading) {
@@ -64,246 +64,120 @@ function setLoading(isLoading) {
   elements.refreshButton.classList.toggle("is-loading", isLoading);
 
   if (isLoading) {
-    setStatus("loading", "Updating live prices...");
+    setStatus("loading", "Updating market prices...");
   }
 }
 
-function updateChangeBadge(element, change) {
-  const isValidChange = Number.isFinite(change);
-
-  if (!isValidChange) {
-    element.textContent = "—";
-    element.className = "change-badge neutral";
-    return;
-  }
-
-  const sign = change > 0 ? "+" : "";
-  element.textContent = `${sign}${change.toFixed(2)}%`;
-  element.className = `change-badge ${change >= 0 ? "positive" : "negative"}`;
+function updateChangeBadge(element) {
+  element.textContent = "Live";
+  element.className = "change-badge positive";
 }
 
-function getCoinGeckoUrl() {
-  const baseUrl =
-    "https://api.coingecko.com/api/v3/simple/price" +
-    "?ids=bitcoin,ethereum,dogecoin" +
-    "&vs_currencies=usd" +
-    "&include_24hr_change=true" +
-    "&include_last_updated_at=true";
-
-  if (
-    CONFIG.COINGECKO_DEMO_API_KEY &&
-    !CONFIG.COINGECKO_DEMO_API_KEY.includes("PASTE_")
-  ) {
-    return `${baseUrl}&x_cg_demo_api_key=${encodeURIComponent(
-      CONFIG.COINGECKO_DEMO_API_KEY
-    )}`;
-  }
-
-  return baseUrl;
-}
-
-async function fetchCryptoPrices() {
-  const response = await fetch(getCoinGeckoUrl());
-
-  if (!response.ok) {
-    throw new Error(`CoinGecko request failed: ${response.status}`);
-  }
-
-  const data = await response.json();
-
-  return {
-    bitcoin: {
-      price: data.bitcoin?.usd,
-      change: data.bitcoin?.usd_24h_change
-    },
-    ethereum: {
-      price: data.ethereum?.usd,
-      change: data.ethereum?.usd_24h_change
-    },
-    dogecoin: {
-      price: data.dogecoin?.usd,
-      change: data.dogecoin?.usd_24h_change
-    }
-  };
-}
-
-async function fetchGoldPrice() {
-  if (
-    !CONFIG.METALS_DEV_API_KEY ||
-    CONFIG.METALS_DEV_API_KEY.includes("PASTE_")
-  ) {
-    throw new Error("Add your Metals.dev API key in config.js");
-  }
-
-  const url =
-    "https://api.metals.dev/v1/metal/spot" +
-    `?api_key=${encodeURIComponent(CONFIG.METALS_DEV_API_KEY)}` +
-    "&metal=gold" +
-    "&currency=USD";
-
-  const response = await fetch(url);
-
-  if (!response.ok) {
-    throw new Error(`Metals.dev request failed: ${response.status}`);
-  }
-
-  const data = await response.json();
-
-  const goldPrice =
-    data?.rate ??
-    data?.price ??
-    data?.gold ??
-    data?.metal?.price;
-
-  if (!Number.isFinite(Number(goldPrice))) {
-    throw new Error("Could not read gold price from Metals.dev response");
-  }
-
-  return Number(goldPrice);
-}
-
-async function fetchUsdIrrPrice() {
-  const username = CONFIG.BONBAST_USERNAME;
-  const hash = CONFIG.BONBAST_SECRET_HASH;
-
-  if (
-    !username ||
-    !hash ||
-    username.includes("PASTE_") ||
-    hash.includes("PASTE_")
-  ) {
-    throw new Error("Add your Bonbast username and secret hash in config.js");
-  }
-
+async function getAssetPrice(symbol) {
   const response = await fetch(
-    `https://bonbast.com/api/${encodeURIComponent(username)}`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded"
-      },
-      body: new URLSearchParams({ hash }).toString()
-    }
+    `${CONFIG.GOLD_API_BASE_URL}/price/${encodeURIComponent(symbol)}`
   );
 
   if (!response.ok) {
-    throw new Error(`Bonbast request failed: ${response.status}`);
+    throw new Error(`${symbol} request failed: ${response.status}`);
   }
 
   const data = await response.json();
 
-  /*
-    Bonbast documentation examples:
-    usd1 = USD sell price
-    usd2 = USD buy price
+  const price = Number(
+    data?.price ??
+    data?.data?.price ??
+    data?.rate ??
+    data?.value
+  );
 
-    We use usd1 as the dashboard USD/IRR price.
-    Depending on the exact Bonbast plan/response, a value might be
-    returned in Toman. This code treats the documented API value as IRR.
-    Verify with one live response and adjust only if your account returns Toman.
-  */
-  const usdIrr = Number(data?.usd1);
-
-  if (!Number.isFinite(usdIrr) || usdIrr <= 0) {
-    throw new Error("Could not read USD/IRR price from Bonbast response");
+  if (!Number.isFinite(price)) {
+    console.log(`${symbol} API response:`, data);
+    throw new Error(`Could not read a valid price for ${symbol}`);
   }
 
-  return usdIrr;
+  return price;
 }
 
-function renderCrypto(data) {
-  elements.bitcoinPrice.textContent = formatUsd(data.bitcoin.price, 2);
-  elements.ethereumPrice.textContent = formatUsd(data.ethereum.price, 2);
-  elements.dogecoinPrice.textContent = formatUsd(data.dogecoin.price, 5);
+function renderCrypto({ bitcoin, ethereum, dogecoin }) {
+  elements.bitcoinPrice.textContent = formatUsd(bitcoin, 2);
+  elements.ethereumPrice.textContent = formatUsd(ethereum, 2);
+  elements.dogecoinPrice.textContent = formatUsd(dogecoin, 5);
 
   removeSkeleton(elements.bitcoinPrice);
   removeSkeleton(elements.ethereumPrice);
   removeSkeleton(elements.dogecoinPrice);
 
-  updateChangeBadge(elements.bitcoinChange, data.bitcoin.change);
-  updateChangeBadge(elements.ethereumChange, data.ethereum.change);
-  updateChangeBadge(elements.dogecoinChange, data.dogecoin.change);
+  updateChangeBadge(elements.bitcoinChange);
+  updateChangeBadge(elements.ethereumChange);
+  updateChangeBadge(elements.dogecoinChange);
 }
 
-function renderGoldAndIrr(goldOunceUsd, usdIrr) {
-  const gold18PerGramIrr =
-    (goldOunceUsd / TROY_OUNCE_TO_GRAMS) *
-    GOLD_18K_PURITY *
-    usdIrr;
-
+function renderGold(goldOunceUsd) {
   elements.goldOuncePrice.textContent = formatUsd(goldOunceUsd, 2);
-  elements.usdIrrPrice.textContent = formatIrr(usdIrr);
-  elements.usdIrrToman.textContent = formatToman(usdIrr);
-
-  elements.gold18Price.textContent = formatIrr(gold18PerGramIrr);
-  elements.gold18Toman.textContent = formatToman(gold18PerGramIrr);
-
   elements.formulaGoldOunce.textContent = formatUsd(goldOunceUsd, 2);
-  elements.formulaUsdIrr.textContent = formatNumber(usdIrr);
-  elements.formulaGold18.textContent = formatIrr(gold18PerGramIrr);
 
-  [
-    elements.goldOuncePrice,
-    elements.usdIrrPrice,
-    elements.gold18Price
-  ].forEach(removeSkeleton);
+  removeSkeleton(elements.goldOuncePrice);
 
   elements.goldUpdatedAt.textContent = "Live API";
 }
 
+function setIrrNotConnected() {
+  elements.usdIrrPrice.textContent = "Add USD/IRR source";
+  elements.usdIrrToman.textContent = "Bon-bast or another source";
+
+  elements.gold18Price.textContent = "Waiting for USD/IRR";
+  elements.gold18Toman.textContent = "—";
+
+  elements.formulaUsdIrr.textContent = "—";
+  elements.formulaGold18.textContent = "—";
+
+  removeSkeleton(elements.usdIrrPrice);
+  removeSkeleton(elements.gold18Price);
+}
+
 function renderLastUpdated() {
-  const now = new Intl.DateTimeFormat("en-US", {
+  const formatted = new Intl.DateTimeFormat("en-US", {
     dateStyle: "medium",
     timeStyle: "medium"
   }).format(new Date());
 
-  elements.lastUpdated.textContent = `Last update: ${now}`;
+  elements.lastUpdated.textContent = `Last update: ${formatted}`;
 }
 
 async function loadMarketData() {
   setLoading(true);
 
   try {
-    const [cryptoResult, goldResult, irrResult] = await Promise.allSettled([
-      fetchCryptoPrices(),
-      fetchGoldPrice(),
-      fetchUsdIrrPrice()
-    ]);
+    const [goldResult, bitcoinResult, ethereumResult, dogecoinResult] =
+      await Promise.all([
+        getAssetPrice("XAU"),
+        getAssetPrice("BTC"),
+        getAssetPrice("ETH"),
+        getAssetPrice("DOGE")
+      ]);
 
-    const errors = [];
+    renderGold(goldResult);
 
-    if (cryptoResult.status === "fulfilled") {
-      renderCrypto(cryptoResult.value);
-    } else {
-      errors.push(`Crypto: ${cryptoResult.reason.message}`);
-    }
+    renderCrypto({
+      bitcoin: bitcoinResult,
+      ethereum: ethereumResult,
+      dogecoin: dogecoinResult
+    });
 
-    if (goldResult.status === "fulfilled" && irrResult.status === "fulfilled") {
-      renderGoldAndIrr(goldResult.value, irrResult.value);
-    } else {
-      if (goldResult.status === "rejected") {
-        errors.push(`Gold: ${goldResult.reason.message}`);
-      }
-
-      if (irrResult.status === "rejected") {
-        errors.push(`USD/IRR: ${irrResult.reason.message}`);
-      }
-    }
+    /*
+      USD/IRR and 18K gold calculation come in Step 2,
+      after you choose an Iranian-rial-rate source.
+    */
+    setIrrNotConnected();
 
     renderLastUpdated();
-
-    if (errors.length === 0) {
-      setStatus("", "All markets updated");
-    } else if (errors.length < 3) {
-      console.error(errors.join("\n"));
-      setStatus("error", "Some market data could not be updated");
-    } else {
-      throw new Error(errors.join("\n"));
-    }
+    setStatus("", "Gold and crypto updated");
   } catch (error) {
     console.error(error);
-    setStatus("error", "Unable to load market data");
-    elements.lastUpdated.textContent = "Last update failed — check API keys and browser console.";
+    setStatus("error", "Could not load market prices");
+    elements.lastUpdated.textContent =
+      "Update failed — open browser console to see the API error.";
   } finally {
     setLoading(false);
   }
