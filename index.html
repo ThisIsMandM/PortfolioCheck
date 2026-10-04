@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Market Pulse | Gold, Crypto & IRR</title>
+
+  <meta
+    name="description"
+    content="Live dashboard for Gold, Bitcoin, Ethereum, Dogecoin, USD/IRR, and 18K gold in Iranian Rial."
+  />
+
+  <link rel="preconnect" href="https://api.coingecko.com" />
+  <link rel="preconnect" href="https://api.metals.dev" />
+  <link rel="preconnect" href="https://bonbast.com" />
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <div class="background-glow glow-one"></div>
+  <div class="background-glow glow-two"></div>
+
+  <main class="page-shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">LIVE MARKET DASHBOARD</p>
+        <h1>Market Pulse</h1>
+        <p class="subtitle">
+          Gold, crypto, dollar rate, and 18K gold value in Iranian rials.
+        </p>
+      </div>
+
+      <div class="header-actions">
+        <div class="status-box">
+          <span id="statusDot" class="status-dot loading"></span>
+          <span id="statusText">Connecting to market APIs...</span>
+        </div>
+
+        <button id="refreshButton" class="refresh-button" type="button">
+          <span class="refresh-icon">↻</span>
+          Refresh
+        </button>
+      </div>
+    </header>
+
+    <section class="summary-grid">
+      <article class="summary-card highlight-card">
+        <div class="card-top">
+          <span class="asset-icon gold-icon">Au</span>
+          <span class="card-label">Gold Spot</span>
+        </div>
+
+        <div class="value-block">
+          <p id="goldOuncePrice" class="main-value skeleton">Loading...</p>
+          <p class="value-unit">USD / Troy Ounce</p>
+        </div>
+
+        <div class="card-footer">
+          <span>International Gold</span>
+          <span id="goldUpdatedAt">—</span>
+        </div>
+      </article>
+
+      <article class="summary-card">
+        <div class="card-top">
+          <span class="asset-icon dollar-icon">$</span>
+          <span class="card-label">US Dollar</span>
+        </div>
+
+        <div class="value-block">
+          <p id="usdIrrPrice" class="main-value skeleton">Loading...</p>
+          <p class="value-unit">IRR / USD</p>
+        </div>
+
+        <div class="card-footer">
+          <span>Iran Free Market</span>
+          <span id="usdIrrToman">—</span>
+        </div>
+      </article>
+
+      <article class="summary-card accent-card">
+        <div class="card-top">
+          <span class="asset-icon gold18-icon">18</span>
+          <span class="card-label">18K Gold</span>
+        </div>
+
+        <div class="value-block">
+          <p id="gold18Price" class="main-value skeleton">Loading...</p>
+          <p class="value-unit">IRR / Gram</p>
+        </div>
+
+        <div class="card-footer">
+          <span>Calculated Metal Value</span>
+          <span id="gold18Toman">—</span>
+        </div>
+      </article>
+    </section>
+
+    <section class="section-heading">
+      <div>
+        <p class="eyebrow">DIGITAL ASSETS</p>
+        <h2>Crypto Market</h2>
+      </div>
+
+      <p class="section-note">Prices in USD</p>
+    </section>
+
+    <section class="crypto-grid">
+      <article class="crypto-card bitcoin-card">
+        <div class="crypto-top">
+          <div class="crypto-name">
+            <span class="coin-icon bitcoin-icon">₿</span>
+            <div>
+              <h3>Bitcoin</h3>
+              <p>BTC</p>
+            </div>
+          </div>
+
+          <span id="bitcoinChange" class="change-badge neutral">—</span>
+        </div>
+
+        <p id="bitcoinPrice" class="crypto-price skeleton">Loading...</p>
+        <p class="crypto-caption">Current market price</p>
+      </article>
+
+      <article class="crypto-card ethereum-card">
+        <div class="crypto-top">
+          <div class="crypto-name">
+            <span class="coin-icon ethereum-icon">Ξ</span>
+            <div>
+              <h3>Ethereum</h3>
+              <p>ETH</p>
+            </div>
+          </div>
+
+          <span id="ethereumChange" class="change-badge neutral">—</span>
+        </div>
+
+        <p id="ethereumPrice" class="crypto-price skeleton">Loading...</p>
+        <p class="crypto-caption">Current market price</p>
+      </article>
+
+      <article class="crypto-card doge-card">
+        <div class="crypto-top">
+          <div class="crypto-name">
+            <span class="coin-icon doge-icon">Ð</span>
+            <div>
+              <h3>Dogecoin</h3>
+              <p>DOGE</p>
+            </div>
+          </div>
+
+          <span id="dogecoinChange" class="change-badge neutral">—</span>
+        </div>
+
+        <p id="dogecoinPrice" class="crypto-price skeleton">Loading...</p>
+        <p class="crypto-caption">Current market price</p>
+      </article>
+    </section>
+
+    <section class="details-panel">
+      <div class="details-header">
+        <div>
+          <p class="eyebrow">CALCULATION</p>
+          <h2>18K Gold Formula</h2>
+        </div>
+
+        <span class="formula-badge">24K × 75%</span>
+      </div>
+
+      <div class="formula-grid">
+        <div class="formula-item">
+          <span>Gold spot / ounce</span>
+          <strong id="formulaGoldOunce">—</strong>
+        </div>
+
+        <div class="formula-symbol">÷</div>
+
+        <div class="formula-item">
+          <span>Troy ounce grams</span>
+          <strong>31.1035</strong>
+        </div>
+
+        <div class="formula-symbol">×</div>
+
+        <div class="formula-item">
+          <span>18K purity</span>
+          <strong>0.75</strong>
+        </div>
+
+        <div class="formula-symbol">×</div>
+
+        <div class="formula-item">
+          <span>USD / IRR</span>
+          <strong id="formulaUsdIrr">—</strong>
+        </div>
+
+        <div class="formula-symbol">=</div>
+
+        <div class="formula-result">
+          <span>18K per gram</span>
+          <strong id="formulaGold18">—</strong>
+        </div>
+      </div>
+
+      <p class="details-note">
+        This value estimates raw 18K gold content only. Local Iranian jewelry
+        prices may include workmanship, taxes, retailer margins, and market premiums.
+      </p>
+    </section>
+
+    <footer>
+      <div>
+        <span id="lastUpdated">Last update: —</span>
+      </div>
+
+      <div class="data-sources">
+        <span>Data sources:</span>
+        <a href="https://www.coingecko.com/en/api" target="_blank" rel="noopener noreferrer">
+          CoinGecko
+        </a>
+        <a href="https://metals.dev/" target="_blank" rel="noopener noreferrer">
+          Metals.dev
+        </a>
+        <a href="https://www.bonbast.com/" target="_blank" rel="noopener noreferrer">
+          Bonbast
+        </a>
+      </div>
+    </footer>
+  </main>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
