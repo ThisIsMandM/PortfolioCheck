@@ -101,13 +101,27 @@ function showChange(element, percentage) {
     return;
   }
 
-  const isPositive = change >= 0;
-  const sign = isPositive ? "+" : "";
+  const positive = change >= 0;
+  const sign = positive ? "+" : "";
 
   element.textContent = `${sign}${change.toFixed(2)}%`;
-  element.className = isPositive
+  element.className = positive
     ? "change-badge positive"
     : "change-badge negative";
+}
+
+function parseNumber(value) {
+  if (value === null || value === undefined) {
+    return NaN;
+  }
+
+  /*
+    Handles values such as:
+    "1,234,567"
+    "1٬234٬567"
+    "1,234,567 تومان"
+  */
+  return Number(String(value).replace(/[^\d.-]/g, ""));
 }
 
 async function getCryptoPrices() {
@@ -137,7 +151,6 @@ async function getCryptoPrices() {
     bitcoin,
     ethereum,
     dogecoin,
-
     bitcoinChange: Number(data?.bitcoin?.usd_24h_change),
     ethereumChange: Number(data?.ethereum?.usd_24h_change),
     dogecoinChange: Number(data?.dogecoin?.usd_24h_change)
@@ -153,21 +166,25 @@ async function getUsdToman() {
 
   const data = await response.json();
 
-  console.log("Iran fiat:", data);
+  console.log("Iran fiat full response:", data);
 
-  const usdToman = Number(
+  const rawUsdValue =
     data?.usd?.sell ??
     data?.usd?.value ??
     data?.usd?.price ??
-    data?.usd
-  );
+    data?.usd;
+
+  const usdToman = parseNumber(rawUsdValue);
+
+  console.log("USD raw value:", rawUsdValue);
+  console.log("USD parsed toman:", usdToman);
 
   if (
     !Number.isFinite(usdToman) ||
     usdToman < 10000 ||
     usdToman > 1000000
   ) {
-    throw new Error("USD/Toman value is missing or invalid.");
+    throw new Error(`USD/Toman invalid. Raw value: ${rawUsdValue}`);
   }
 
   return usdToman;
@@ -182,20 +199,34 @@ async function getIran18KGoldToman() {
 
   const data = await response.json();
 
-  console.log("Iran gold:", data);
+  console.log("Iran gold full response:", data);
 
-const gold18Toman = Number(
-  data?.bub_18ayar?.value ??
-  data?.bub_18ayar?.price ??
-  data?.bub_18ayar
-);
+  /*
+    This source calls 18K gold:
+    bub_18ayar
+  */
+  const gold18Data = data?.bub_18ayar;
+
+  console.log("18K gold object:", gold18Data);
+
+  const rawGold18Value =
+    gold18Data?.value ??
+    gold18Data?.price ??
+    gold18Data?.sell ??
+    gold18Data?.buy ??
+    gold18Data;
+
+  const gold18Toman = parseNumber(rawGold18Value);
+
+  console.log("18K gold raw value:", rawGold18Value);
+  console.log("18K gold parsed toman:", gold18Toman);
 
   if (
     !Number.isFinite(gold18Toman) ||
     gold18Toman < 100000 ||
     gold18Toman > 100000000
   ) {
-    throw new Error("18K gold value is missing or invalid.");
+    throw new Error(`18K gold invalid. Raw value: ${rawGold18Value}`);
   }
 
   return gold18Toman;
@@ -222,8 +253,8 @@ function renderIranPrices(usdToman, gold18Toman) {
   setText(elements.gold18Toman, formatToman(gold18Toman));
 
   /*
-    This free Iran JSON source does not provide
-    international gold price per troy ounce in USD.
+    This free source does not include
+    international gold ounce in USD.
   */
   setText(elements.goldOuncePrice, "Unavailable");
   setText(elements.goldUpdatedAt, "Iran market JSON");
@@ -251,47 +282,55 @@ async function loadMarketData() {
   setStatus("loading", "Updating prices...");
 
   try {
-   const results = await Promise.allSettled([
-  getCryptoPrices(),
-  getUsdToman(),
-  getIran18KGoldToman()
-]);
+    const results = await Promise.allSettled([
+      getCryptoPrices(),
+      getUsdToman(),
+      getIran18KGoldToman()
+    ]);
 
-const cryptoResult = results[0];
-const usdResult = results[1];
-const goldResult = results[2];
+    const cryptoResult = results[0];
+    const usdResult = results[1];
+    const goldResult = results[2];
 
-if (cryptoResult.status === "fulfilled") {
-  renderCrypto(cryptoResult.value);
-}
+    if (cryptoResult.status === "fulfilled") {
+      renderCrypto(cryptoResult.value);
+    } else {
+      console.error("Crypto failed:", cryptoResult.reason);
+    }
 
-if (
-  usdResult.status === "fulfilled" &&
-  goldResult.status === "fulfilled"
-) {
-  renderIranPrices(
-    usdResult.value,
-    goldResult.value
-  );
-}
+    if (
+      usdResult.status === "fulfilled" &&
+      goldResult.status === "fulfilled"
+    ) {
+      renderIranPrices(
+        usdResult.value,
+        goldResult.value
+      );
+    } else {
+      if (usdResult.status === "rejected") {
+        console.error("USD/Toman failed:", usdResult.reason);
+      }
 
-if (cryptoResult.status === "rejected") {
-  console.error("Crypto failed:", cryptoResult.reason);
-}
+      if (goldResult.status === "rejected") {
+        console.error("18K gold failed:", goldResult.reason);
+      }
+    }
 
-if (usdResult.status === "rejected") {
-  console.error("USD/Toman failed:", usdResult.reason);
-}
-
-if (goldResult.status === "rejected") {
-  console.error("18K gold failed:", goldResult.reason);
-}
     updateLastUpdated();
 
-    setStatus("", "Market updated");
+    const allSuccessful = results.every(
+      (result) => result.status === "fulfilled"
+    );
+
+    setStatus(
+      allSuccessful ? "" : "error",
+      allSuccessful
+        ? "Market updated"
+        : "Some prices could not load"
+    );
   } catch (error) {
     console.error("Market loading error:", error);
-    setStatus("error", "Could not load some prices");
+    setStatus("error", "Could not load market data");
   } finally {
     setLoading(false);
   }
@@ -303,9 +342,4 @@ if (elements.refreshButton) {
 
 loadMarketData();
 
-/*
-  Refresh every 60 seconds.
-  The Iran source itself updates less frequently,
-  so displayed Iran prices may not change every minute.
-*/
 setInterval(loadMarketData, 60 * 1000);
