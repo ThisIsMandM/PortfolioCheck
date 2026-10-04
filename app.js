@@ -184,11 +184,11 @@ async function getIran18KGoldToman() {
 
   console.log("Iran gold:", data);
 
-  const gold18Toman = Number(
-    data?.geram18?.value ??
-    data?.geram18?.price ??
-    data?.geram18
-  );
+const gold18Toman = Number(
+  data?.bub_18ayar?.value ??
+  data?.bub_18ayar?.price ??
+  data?.bub_18ayar
+);
 
   if (
     !Number.isFinite(gold18Toman) ||
@@ -251,14 +251,41 @@ async function loadMarketData() {
   setStatus("loading", "Updating prices...");
 
   try {
-    const [crypto, usdToman, gold18Toman] = await Promise.all([
-      getCryptoPrices(),
-      getUsdToman(),
-      getIran18KGoldToman()
-    ]);
+   const results = await Promise.allSettled([
+  getCryptoPrices(),
+  getUsdToman(),
+  getIran18KGoldToman()
+]);
 
-    renderCrypto(crypto);
-    renderIranPrices(usdToman, gold18Toman);
+const cryptoResult = results[0];
+const usdResult = results[1];
+const goldResult = results[2];
+
+if (cryptoResult.status === "fulfilled") {
+  renderCrypto(cryptoResult.value);
+}
+
+if (
+  usdResult.status === "fulfilled" &&
+  goldResult.status === "fulfilled"
+) {
+  renderIranPrices(
+    usdResult.value,
+    goldResult.value
+  );
+}
+
+if (cryptoResult.status === "rejected") {
+  console.error("Crypto failed:", cryptoResult.reason);
+}
+
+if (usdResult.status === "rejected") {
+  console.error("USD/Toman failed:", usdResult.reason);
+}
+
+if (goldResult.status === "rejected") {
+  console.error("18K gold failed:", goldResult.reason);
+}
     updateLastUpdated();
 
     setStatus("", "Market updated");
