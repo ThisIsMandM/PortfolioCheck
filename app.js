@@ -18,13 +18,6 @@ function formatUsd(price, decimals = 2) {
   }).format(price);
 }
 
-function setLoadingText() {
-  goldPriceElement.textContent = "Gold source needed";
-  bitcoinPriceElement.textContent = "Loading...";
-  ethereumPriceElement.textContent = "Loading...";
-  dogecoinPriceElement.textContent = "Loading...";
-}
-
 async function getCryptoPrices() {
   const response = await fetch(CRYPTO_URL);
 
@@ -59,7 +52,13 @@ async function loadPrices() {
   refreshButton.disabled = true;
   refreshButton.textContent = "Loading...";
 
-  setLoadingText();
+  bitcoinPriceElement.textContent = "Loading...";
+  ethereumPriceElement.textContent = "Loading...";
+  dogecoinPriceElement.textContent = "Loading...";
+
+  if (goldPriceElement) {
+    goldPriceElement.textContent = "Gold source needed";
+  }
 
   try {
     const crypto = await getCryptoPrices();
