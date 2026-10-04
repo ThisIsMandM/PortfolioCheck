@@ -573,39 +573,133 @@ footer {
 }
 
 @media (max-width: 680px) {
-  .page-shell {
-    width: min(100% - 28px, 1240px);
-    padding-top: 34px;
+  body {
+    overflow-x: hidden;
   }
 
-  .hero,
-  footer,
-  .details-header {
-    align-items: flex-start;
+  .page-shell {
+    width: min(100% - 16px, 560px);
+    padding: 14px 0 14px;
+  }
+
+  .hero {
     flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .eyebrow {
+    font-size: 0.62rem;
+    margin-bottom: 4px;
+  }
+
+  h1 {
+    font-size: 1.45rem;
+    margin-bottom: 6px;
+    letter-spacing: -0.05em;
+  }
+
+  .subtitle {
+    display: none;
   }
 
   .header-actions {
-    justify-content: flex-start;
+    width: 100%;
+    gap: 8px;
   }
 
-  .section-heading {
-    align-items: flex-start;
-    flex-direction: column;
+  .status-box {
+    padding: 8px 10px;
+    font-size: 0.68rem;
+  }
+
+  .refresh-button {
+    padding: 9px 12px;
+    font-size: 0.72rem;
+  }
+
+  .summary-grid,
+  .crypto-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 10px;
   }
 
-  .formula-grid {
-    grid-template-columns: 1fr;
+  .summary-card,
+  .crypto-card {
+    min-height: 118px;
+    padding: 12px;
+    border-radius: 16px;
   }
 
-  .data-sources {
-    justify-content: flex-start;
-    flex-wrap: wrap;
+  .card-top,
+  .crypto-top {
+    gap: 8px;
+    align-items: center;
+  }
+
+  .asset-icon,
+  .coin-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 10px;
+    font-size: 0.8rem;
+  }
+
+  .card-label,
+  .crypto-name h3 {
+    font-size: 0.72rem;
+    line-height: 1.2;
+    margin: 0;
+  }
+
+  .crypto-name p,
+  .value-unit,
+  .crypto-caption,
+  .card-footer,
+  .section-note,
+  .details-note,
+  .formula-badge,
+  .goldUpdatedAt {
+    display: none !important;
+  }
+
+  .value-block {
+    margin-top: 12px;
   }
 
   .main-value,
   .crypto-price {
-    font-size: 1.75rem;
+    font-size: 1rem;
+    line-height: 1.15;
+    margin: 0;
+    word-break: break-word;
+  }
+
+  .crypto-price {
+    margin-top: 16px;
+  }
+
+  .change-badge {
+    padding: 4px 6px;
+    font-size: 0.58rem;
+  }
+
+  .section-heading {
+    margin: 14px 0 10px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  h2 {
+    font-size: 1rem;
+  }
+
+  .details-panel,
+  footer,
+  .background-glow {
+    display: none;
   }
 }
