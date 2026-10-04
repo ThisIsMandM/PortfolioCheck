@@ -4,6 +4,25 @@ const CRYPTO_URL =
   "&vs_currencies=usd" +
   "&include_24hr_change=true";
 
+/*
+  Free USD/Toman JSON feed.
+  Toman × 10 = Rial.
+*/
+const FIAT_URL =
+  "https://raw.githubusercontent.com/HosseinOdd/Navasan-API/main/data/fiat.json";
+
+/*
+  TEMPORARY:
+  Put current international gold price per troy ounce in USD here manually.
+  Example: 3000 means $3,000 per ounce.
+
+  Later we can replace this with a stable gold API/proxy.
+*/
+const GOLD_OUNCE_USD = 3000;
+
+const TROY_OUNCE_TO_GRAMS = 31.1034768;
+const GOLD_18K_PURITY = 0.75;
+
 const elements = {
   bitcoinPrice: document.getElementById("bitcoinPrice"),
   ethereumPrice: document.getElementById("ethereumPrice"),
@@ -13,20 +32,43 @@ const elements = {
   ethereumChange: document.getElementById("ethereumChange"),
   dogecoinChange: document.getElementById("dogecoinChange"),
 
-  refreshButton: document.getElementById("refreshButton"),
+  usdIrrPrice: document.getElementById("usdIrrPrice"),
+  usdIrrToman: document.getElementById("usdIrrToman"),
 
+  goldOuncePrice: document.getElementById("goldOuncePrice"),
+  gold18Price: document.getElementById("gold18Price"),
+  gold18Toman: document.getElementById("gold18Toman"),
+
+  formulaGoldOunce: document.getElementById("formulaGoldOunce"),
+  formulaUsdIrr: document.getElementById("formulaUsdIrr"),
+  formulaGold18: document.getElementById("formulaGold18"),
+
+  refreshButton: document.getElementById("refreshButton"),
   statusDot: document.getElementById("statusDot"),
   statusText: document.getElementById("statusText"),
-
   lastUpdated: document.getElementById("lastUpdated")
 };
 
-function formatUsd(value, decimals = 2) {
+function formatUsd(value, digits = 2) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
-    maximumFractionDigits: decimals
+    maximumFractionDigits: digits
   }).format(value);
+}
+
+function formatNumber(value, digits = 0) {
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: digits
+  }).format(value);
+}
+
+function formatToman(value) {
+  return `${formatNumber(value)} تومان`;
+}
+
+function formatRial(value) {
+  return `${formatNumber(value)} ریال`;
 }
 
 function removeSkeleton(element) {
@@ -35,13 +77,20 @@ function removeSkeleton(element) {
   }
 }
 
-function setStatus(type, message) {
+function setText(element, text) {
+  if (element) {
+    element.textContent = text;
+    removeSkeleton(element);
+  }
+}
+
+function setStatus(type, text) {
   if (elements.statusDot) {
     elements.statusDot.className = `status-dot ${type}`;
   }
 
   if (elements.statusText) {
-    elements.statusText.textContent = message;
+    elements.statusText.textContent = text;
   }
 }
 
@@ -58,12 +107,11 @@ function showChange(element, percentage) {
     return;
   }
 
-  const isPositive = change >= 0;
-  const sign = isPositive ? "+" : "";
+  const positive = change >= 0;
+  const sign = positive ? "+" : "";
 
   element.textContent = `${sign}${change.toFixed(2)}%`;
-
-  element.className = isPositive
+  element.className = positive
     ? "change-badge positive"
     : "change-badge negative";
 }
@@ -72,129 +120,94 @@ async function getCryptoPrices() {
   const response = await fetch(CRYPTO_URL);
 
   if (!response.ok) {
-    throw new Error(`CoinGecko request failed: ${response.status}`);
+    throw new Error(`CoinGecko error: ${response.status}`);
   }
 
   const data = await response.json();
 
   console.log("CoinGecko response:", data);
 
-  const bitcoin = Number(data?.bitcoin?.usd);
-  const ethereum = Number(data?.ethereum?.usd);
-  const dogecoin = Number(data?.dogecoin?.usd);
-
-  const bitcoinChange = Number(data?.bitcoin?.usd_24h_change);
-  const ethereumChange = Number(data?.ethereum?.usd_24h_change);
-  const dogecoinChange = Number(data?.dogecoin?.usd_24h_change);
-
-  if (
-    !Number.isFinite(bitcoin) ||
-    !Number.isFinite(ethereum) ||
-    !Number.isFinite(dogecoin)
-  ) {
-    throw new Error("CoinGecko returned an unexpected price format.");
-  }
-
   return {
-    bitcoin,
-    ethereum,
-    dogecoin,
-    bitcoinChange,
-    ethereumChange,
-    dogecoinChange
+    bitcoin: Number(data?.bitcoin?.usd),
+    ethereum: Number(data?.ethereum?.usd),
+    dogecoin: Number(data?.dogecoin?.usd),
+
+    bitcoinChange: Number(data?.bitcoin?.usd_24h_change),
+    ethereumChange: Number(data?.ethereum?.usd_24h_change),
+    dogecoinChange: Number(data?.dogecoin?.usd_24h_change)
   };
 }
 
-function renderCrypto(crypto) {
-  /*
-    These console logs tell you whether the HTML elements were found.
-    They should NOT be null.
-  */
-  console.log("Frontend elements found:", {
-    bitcoinPrice: elements.bitcoinPrice,
-    ethereumPrice: elements.ethereumPrice,
-    dogecoinPrice: elements.dogecoinPrice
-  });
+async function getUsdToman() {
+  const response = await fetch(FIAT_URL);
 
-  if (
-    !elements.bitcoinPrice ||
-    !elements.ethereumPrice ||
-    !elements.dogecoinPrice
-  ) {
+  if (!response.ok) {
+    throw new Error(`USD/Toman source error: ${response.status}`);
+  }
+
+  const data = await response.json();
+
+  console.log("Iran Fiat response:", data);
+
+  /*
+    Different versions of this community JSON may use:
+    usd.sell
+    usd.value
+    usd.price
+    usd
+  */
+  const usdToman = Number(
+    data?.usd?.sell ??
+    data?.usd?.value ??
+    data?.usd?.price ??
+    data?.usd
+  );
+
+  if (!Number.isFinite(usdToman) || usdToman <= 0) {
     throw new Error(
-      "HTML IDs are missing. Add bitcoinPrice, ethereumPrice, and dogecoinPrice to index.html."
+      "USD/Toman price not found. Open Console and check 'Iran Fiat response'."
     );
   }
 
-  elements.bitcoinPrice.textContent = formatUsd(crypto.bitcoin, 2);
-  elements.ethereumPrice.textContent = formatUsd(crypto.ethereum, 2);
-  elements.dogecoinPrice.textContent = formatUsd(crypto.dogecoin, 5);
+  return usdToman;
+}
 
-  removeSkeleton(elements.bitcoinPrice);
-  removeSkeleton(elements.ethereumPrice);
-  removeSkeleton(elements.dogecoinPrice);
+function renderCrypto(crypto) {
+  if (!Number.isFinite(crypto.bitcoin)) {
+    throw new Error("Invalid Bitcoin price.");
+  }
+
+  setText(elements.bitcoinPrice, formatUsd(crypto.bitcoin, 2));
+  setText(elements.ethereumPrice, formatUsd(crypto.ethereum, 2));
+  setText(elements.dogecoinPrice, formatUsd(crypto.dogecoin, 5));
 
   showChange(elements.bitcoinChange, crypto.bitcoinChange);
   showChange(elements.ethereumChange, crypto.ethereumChange);
   showChange(elements.dogecoinChange, crypto.dogecoinChange);
 }
 
-function updateLastUpdated() {
-  if (!elements.lastUpdated) {
-    return;
-  }
+function renderIranRates(usdToman) {
+  const usdRial = usdToman * 10;
 
-  const time = new Intl.DateTimeFormat("en-US", {
-    dateStyle: "medium",
-    timeStyle: "medium"
-  }).format(new Date());
+  /*
+    18K gold per gram:
+    Gold ounce USD ÷ 31.1034768 × 0.75 × USD/Rial
+  */
+  const gold18PerGramRial =
+    (GOLD_OUNCE_USD / TROY_OUNCE_TO_GRAMS) *
+    GOLD_18K_PURITY *
+    usdRial;
 
-  elements.lastUpdated.textContent = `Last update: ${time}`;
+  const gold18PerGramToman = gold18PerGramRial / 10;
+
+  setText(elements.usdIrrPrice, formatRial(usdRial));
+  setText(elements.usdIrrToman, formatToman(usdToman));
+
+  setText(elements.goldOuncePrice, formatUsd(GOLD_OUNCE_USD, 2));
+  setText(elements.gold18Price, formatRial(gold18PerGramRial));
+  setText(elements.gold18Toman, formatToman(gold18PerGramToman));
+
+  setText(elements.formulaGoldOunce, formatUsd(GOLD_OUNCE_USD, 2));
+  setText(elements.formulaUsdIrr, formatNumber(usdRial));
+  setText(elements.formulaGold18, formatRial(gold18PerGramRial));
 }
-
-async function loadCryptoPrices() {
-  if (elements.refreshButton) {
-    elements.refreshButton.disabled = true;
-    elements.refreshButton.classList.add("is-loading");
-  }
-
-  setStatus("loading", "Updating crypto prices...");
-
-  try {
-    const crypto = await getCryptoPrices();
-
-    renderCrypto(crypto);
-    updateLastUpdated();
-
-    setStatus("", "Crypto market updated");
-  } catch (error) {
-    console.error("Crypto loading error:", error);
-
-    setStatus("error", "Could not show crypto prices");
-
-    if (elements.bitcoinPrice) {
-      elements.bitcoinPrice.textContent = "Error";
-    }
-
-    if (elements.ethereumPrice) {
-      elements.ethereumPrice.textContent = "Error";
-    }
-
-    if (elements.dogecoinPrice) {
-      elements.dogecoinPrice.textContent = "Error";
-    }
-  } finally {
-    if (elements.refreshButton) {
-      elements.refreshButton.disabled = false;
-      elements.refreshButton.classList.remove("is-loading");
-    }
-  }
-}
-
-if (elements.refreshButton) {
-  elements.refreshButton.addEventListener("click", loadCryptoPrices);
-}
-
-loadCryptoPrices();
-
-setInterval(loadCryptoPrices, 60 * 1000);
