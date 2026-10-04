@@ -1,0 +1,611 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap");
+
+:root {
+  --bg: #07111f;
+  --bg-soft: #0b1728;
+  --card: rgba(14, 31, 52, 0.78);
+  --card-border: rgba(148, 180, 219, 0.16);
+  --text: #eff7ff;
+  --muted: #93a8bc;
+  --dim: #61768b;
+  --gold: #f6c85f;
+  --gold-dark: #d6952a;
+  --green: #36d399;
+  --red: #fb7185;
+  --blue: #60a5fa;
+  --purple: #a78bfa;
+  --doge: #eab308;
+  --shadow: 0 20px 50px rgba(0, 0, 0, 0.24);
+  --radius: 24px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  background: var(--bg);
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  color: var(--text);
+  background:
+    radial-gradient(circle at 15% 15%, rgba(59, 130, 246, 0.09), transparent 28rem),
+    radial-gradient(circle at 90% 20%, rgba(246, 200, 95, 0.07), transparent 28rem),
+    var(--bg);
+  font-family: "Manrope", Arial, sans-serif;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.background-glow {
+  position: fixed;
+  width: 420px;
+  height: 420px;
+  border-radius: 50%;
+  filter: blur(95px);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.glow-one {
+  top: 16%;
+  left: -180px;
+  background: rgba(37, 99, 235, 0.12);
+}
+
+.glow-two {
+  right: -160px;
+  bottom: 8%;
+  background: rgba(245, 158, 11, 0.09);
+}
+
+.page-shell {
+  width: min(1240px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 56px 0 34px;
+}
+
+.hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 28px;
+  margin-bottom: 36px;
+}
+
+.eyebrow {
+  margin: 0 0 9px;
+  color: var(--gold);
+  font-family: "DM Mono", monospace;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
+}
+
+h1 {
+  margin-bottom: 12px;
+  font-size: clamp(2.2rem, 6vw, 4.35rem);
+  line-height: 1;
+  letter-spacing: -0.07em;
+}
+
+h2 {
+  margin-bottom: 0;
+  font-size: clamp(1.5rem, 3vw, 2.05rem);
+  letter-spacing: -0.045em;
+}
+
+.subtitle {
+  max-width: 610px;
+  margin-bottom: 0;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.status-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 14px;
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  color: var(--muted);
+  background: rgba(10, 25, 42, 0.62);
+  font-size: 0.78rem;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 0 4px rgba(54, 211, 153, 0.14);
+}
+
+.status-dot.loading {
+  background: var(--gold);
+  box-shadow: 0 0 0 4px rgba(246, 200, 95, 0.14);
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.status-dot.error {
+  background: var(--red);
+  box-shadow: 0 0 0 4px rgba(251, 113, 133, 0.14);
+}
+
+.refresh-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 16px;
+  border: 1px solid rgba(246, 200, 95, 0.35);
+  border-radius: 999px;
+  color: #1b1506;
+  background: linear-gradient(135deg, #f8d571, #eeb545);
+  box-shadow: 0 10px 24px rgba(238, 181, 69, 0.16);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.refresh-button:hover {
+  filter: brightness(1.07);
+  transform: translateY(-2px);
+}
+
+.refresh-button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+  transform: none;
+}
+
+.refresh-button.is-loading .refresh-icon {
+  animation: spin 0.75s linear infinite;
+}
+
+.summary-grid,
+.crypto-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+
+.summary-card,
+.crypto-card,
+.details-panel {
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  background: linear-gradient(145deg, rgba(20, 43, 69, 0.82), rgba(9, 23, 39, 0.78));
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(18px);
+}
+
+.summary-card {
+  min-height: 226px;
+  padding: 22px;
+  overflow: hidden;
+  position: relative;
+}
+
+.summary-card::before {
+  position: absolute;
+  top: 0;
+  left: 22px;
+  width: 72px;
+  height: 3px;
+  content: "";
+  border-radius: 0 0 99px 99px;
+  background: rgba(255, 255, 255, 0.24);
+}
+
+.highlight-card::before {
+  background: var(--gold);
+}
+
+.accent-card::before {
+  background: var(--green);
+}
+
+.card-top,
+.crypto-top,
+.crypto-name,
+.card-footer,
+.details-header,
+footer,
+.data-sources {
+  display: flex;
+  align-items: center;
+}
+
+.card-top {
+  gap: 10px;
+}
+
+.asset-icon,
+.coin-icon {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 14px;
+  font-weight: 800;
+}
+
+.asset-icon {
+  width: 40px;
+  height: 40px;
+  font-size: 0.92rem;
+}
+
+.gold-icon {
+  color: #2a1d05;
+  background: linear-gradient(135deg, #fce49a, #e4ad37);
+}
+
+.dollar-icon {
+  color: #e5f6ff;
+  background: linear-gradient(135deg, #1c8e72, #1e665d);
+}
+
+.gold18-icon {
+  color: #031b14;
+  background: linear-gradient(135deg, #81f0c5, #23b47f);
+}
+
+.card-label {
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.value-block {
+  margin-top: 29px;
+}
+
+.main-value,
+.crypto-price {
+  margin-bottom: 8px;
+  font-family: "DM Mono", monospace;
+  font-weight: 500;
+  letter-spacing: -0.055em;
+}
+
+.main-value {
+  font-size: clamp(1.65rem, 3.1vw, 2.45rem);
+}
+
+.value-unit,
+.crypto-caption {
+  margin-bottom: 0;
+  color: var(--dim);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.card-footer {
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 27px;
+  padding-top: 15px;
+  border-top: 1px solid rgba(156, 185, 217, 0.1);
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.section-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin: 56px 0 18px;
+}
+
+.section-note {
+  margin-bottom: 3px;
+  color: var(--dim);
+  font-family: "DM Mono", monospace;
+  font-size: 0.75rem;
+}
+
+.crypto-card {
+  min-height: 210px;
+  padding: 22px;
+}
+
+.crypto-top {
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.crypto-name {
+  gap: 11px;
+}
+
+.crypto-name h3 {
+  margin-bottom: 2px;
+  font-size: 0.98rem;
+  letter-spacing: -0.025em;
+}
+
+.crypto-name p {
+  margin-bottom: 0;
+  color: var(--dim);
+  font-family: "DM Mono", monospace;
+  font-size: 0.72rem;
+}
+
+.coin-icon {
+  width: 42px;
+  height: 42px;
+  font-size: 1.35rem;
+}
+
+.bitcoin-icon {
+  color: #fff;
+  background: #f7931a;
+}
+
+.ethereum-icon {
+  color: #e9e5ff;
+  background: linear-gradient(135deg, #6974d7, #454e9c);
+}
+
+.doge-icon {
+  color: #251b00;
+  background: linear-gradient(135deg, #f6db80, #c8a238);
+}
+
+.change-badge {
+  padding: 6px 9px;
+  border-radius: 999px;
+  font-family: "DM Mono", monospace;
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
+.change-badge.positive {
+  color: #7cf0bf;
+  background: rgba(54, 211, 153, 0.12);
+}
+
+.change-badge.negative {
+  color: #ff93a2;
+  background: rgba(251, 113, 133, 0.12);
+}
+
+.change-badge.neutral {
+  color: var(--muted);
+  background: rgba(148, 168, 188, 0.1);
+}
+
+.crypto-price {
+  margin-top: 44px;
+  font-size: clamp(1.72rem, 3vw, 2.35rem);
+}
+
+.details-panel {
+  margin-top: 44px;
+  padding: 26px;
+}
+
+.details-header {
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.formula-badge {
+  padding: 8px 12px;
+  border: 1px solid rgba(246, 200, 95, 0.22);
+  border-radius: 999px;
+  color: var(--gold);
+  background: rgba(246, 200, 95, 0.08);
+  font-family: "DM Mono", monospace;
+  font-size: 0.73rem;
+}
+
+.formula-grid {
+  display: grid;
+  grid-template-columns: 1.1fr auto 0.9fr auto 0.75fr auto 1fr auto 1.2fr;
+  align-items: stretch;
+  gap: 11px;
+  margin-top: 26px;
+}
+
+.formula-item,
+.formula-result {
+  display: flex;
+  min-height: 94px;
+  flex-direction: column;
+  justify-content: center;
+  padding: 15px;
+  border: 1px solid rgba(156, 185, 217, 0.12);
+  border-radius: 16px;
+  background: rgba(2, 13, 25, 0.26);
+}
+
+.formula-result {
+  border-color: rgba(246, 200, 95, 0.3);
+  background: linear-gradient(135deg, rgba(246, 200, 95, 0.17), rgba(246, 200, 95, 0.04));
+}
+
+.formula-item span,
+.formula-result span {
+  margin-bottom: 8px;
+  color: var(--dim);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+
+.formula-item strong,
+.formula-result strong {
+  font-family: "DM Mono", monospace;
+  font-size: 0.9rem;
+  letter-spacing: -0.03em;
+  word-break: break-word;
+}
+
+.formula-result strong {
+  color: var(--gold);
+}
+
+.formula-symbol {
+  display: grid;
+  place-items: center;
+  color: var(--gold);
+  font-family: "DM Mono", monospace;
+  font-size: 1.35rem;
+}
+
+.details-note {
+  margin: 21px 0 0;
+  color: var(--muted);
+  font-size: 0.79rem;
+  line-height: 1.7;
+}
+
+footer {
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 30px;
+  padding-top: 22px;
+  border-top: 1px solid rgba(156, 185, 217, 0.1);
+  color: var(--dim);
+  font-size: 0.72rem;
+}
+
+.data-sources {
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.data-sources a {
+  color: var(--muted);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.data-sources a:hover {
+  color: var(--gold);
+}
+
+.skeleton {
+  color: transparent !important;
+  border-radius: 7px;
+  background: linear-gradient(
+    90deg,
+    rgba(147, 168, 188, 0.09),
+    rgba(147, 168, 188, 0.18),
+    rgba(147, 168, 188, 0.09)
+  );
+  background-size: 220% 100%;
+  animation: shimmer 1.45s infinite linear;
+  user-select: none;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+
+  to {
+    background-position: -20% 0;
+  }
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.45;
+    transform: scale(0.85);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 1020px) {
+  .summary-grid,
+  .crypto-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .summary-card,
+  .crypto-card {
+    min-height: auto;
+  }
+
+  .formula-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .formula-symbol {
+    display: none;
+  }
+}
+
+@media (max-width: 680px) {
+  .page-shell {
+    width: min(100% - 28px, 1240px);
+    padding-top: 34px;
+  }
+
+  .hero,
+  footer,
+  .details-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .header-actions {
+    justify-content: flex-start;
+  }
+
+  .section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .formula-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .data-sources {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .main-value,
+  .crypto-price {
+    font-size: 1.75rem;
+  }
+}
