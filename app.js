@@ -7,16 +7,16 @@ const CRYPTO_URL =
 const FIAT_URL =
   "https://raw.githubusercontent.com/HosseinOdd/Navasan-API/main/data/fiat.json";
 
-const GOLD_URL =
-  "https://api.goldprice.dev/v1/prices?symbol=XAU-USD-SPOT";
-
-const TROY_OUNCE_TO_GRAMS = 31.1034768;
-const GOLD_18K_PURITY = 0.75;
+const GOLD_IRAN_URL =
+  "https://raw.githubusercontent.com/HosseinOdd/Navasan-API/main/data/gold.json";
 
 const elements = {
   goldOuncePrice: document.getElementById("goldOuncePrice"),
+  goldUpdatedAt: document.getElementById("goldUpdatedAt"),
+
   usdIrrPrice: document.getElementById("usdIrrPrice"),
   usdIrrToman: document.getElementById("usdIrrToman"),
+
   gold18Price: document.getElementById("gold18Price"),
   gold18Toman: document.getElementById("gold18Toman"),
 
@@ -32,7 +32,6 @@ const elements = {
   formulaUsdIrr: document.getElementById("formulaUsdIrr"),
   formulaGold18: document.getElementById("formulaGold18"),
 
-  goldUpdatedAt: document.getElementById("goldUpdatedAt"),
   refreshButton: document.getElementById("refreshButton"),
   statusDot: document.getElementById("statusDot"),
   statusText: document.getElementById("statusText"),
@@ -102,11 +101,11 @@ function showChange(element, percentage) {
     return;
   }
 
-  const positive = change >= 0;
-  const sign = positive ? "+" : "";
+  const isPositive = change >= 0;
+  const sign = isPositive ? "+" : "";
 
   element.textContent = `${sign}${change.toFixed(2)}%`;
-  element.className = positive
+  element.className = isPositive
     ? "change-badge positive"
     : "change-badge negative";
 }
@@ -149,7 +148,7 @@ async function getUsdToman() {
   const response = await fetch(FIAT_URL);
 
   if (!response.ok) {
-    throw new Error(`USD/Toman source error: ${response.status}`);
+    throw new Error(`Iran currency source error: ${response.status}`);
   }
 
   const data = await response.json();
@@ -168,34 +167,38 @@ async function getUsdToman() {
     usdToman < 10000 ||
     usdToman > 1000000
   ) {
-    throw new Error("USD/Toman value is missing or suspicious.");
+    throw new Error("USD/Toman value is missing or invalid.");
   }
 
   return usdToman;
 }
 
-async function getGoldPrice() {
-  const response = await fetch(GOLD_URL);
+async function getIran18KGoldToman() {
+  const response = await fetch(GOLD_IRAN_URL);
 
   if (!response.ok) {
-    throw new Error(`Gold API error: ${response.status}`);
+    throw new Error(`Iran gold source error: ${response.status}`);
   }
 
   const data = await response.json();
 
-  console.log("Gold API:", data);
+  console.log("Iran gold:", data);
 
-  const goldOunceUsd = Number(
-    data?.prices?.[0]?.price ??
-    data?.symbols?.[0]?.price ??
-    data?.price
+  const gold18Toman = Number(
+    data?.geram18?.value ??
+    data?.geram18?.price ??
+    data?.geram18
   );
 
-  if (!Number.isFinite(goldOunceUsd) || goldOunceUsd <= 0) {
-    throw new Error("Gold price was not found.");
+  if (
+    !Number.isFinite(gold18Toman) ||
+    gold18Toman < 100000 ||
+    gold18Toman > 100000000
+  ) {
+    throw new Error("18K gold value is missing or invalid.");
   }
 
-  return goldOunceUsd;
+  return gold18Toman;
 }
 
 function renderCrypto(crypto) {
@@ -208,29 +211,26 @@ function renderCrypto(crypto) {
   showChange(elements.dogecoinChange, crypto.dogecoinChange);
 }
 
-function renderGoldAndIranRates(usdToman, goldOunceUsd) {
+function renderIranPrices(usdToman, gold18Toman) {
   const usdRial = usdToman * 10;
-
-  const gold18PerGramRial =
-    (goldOunceUsd / TROY_OUNCE_TO_GRAMS) *
-    GOLD_18K_PURITY *
-    usdRial;
-
-  const gold18PerGramToman = gold18PerGramRial / 10;
-
-  setText(elements.goldOuncePrice, formatUsd(goldOunceUsd, 2));
+  const gold18Rial = gold18Toman * 10;
 
   setText(elements.usdIrrPrice, formatRial(usdRial));
   setText(elements.usdIrrToman, formatToman(usdToman));
 
-  setText(elements.gold18Price, formatRial(gold18PerGramRial));
-  setText(elements.gold18Toman, formatToman(gold18PerGramToman));
+  setText(elements.gold18Price, formatRial(gold18Rial));
+  setText(elements.gold18Toman, formatToman(gold18Toman));
 
-  setText(elements.formulaGoldOunce, formatUsd(goldOunceUsd, 2));
+  /*
+    This free Iran JSON source does not provide
+    international gold price per troy ounce in USD.
+  */
+  setText(elements.goldOuncePrice, "Unavailable");
+  setText(elements.goldUpdatedAt, "Iran market JSON");
+
+  setText(elements.formulaGoldOunce, "—");
   setText(elements.formulaUsdIrr, formatNumber(usdRial));
-  setText(elements.formulaGold18, formatRial(gold18PerGramRial));
-
-  setText(elements.goldUpdatedAt, "Live API");
+  setText(elements.formulaGold18, formatRial(gold18Rial));
 }
 
 function updateLastUpdated() {
@@ -238,12 +238,12 @@ function updateLastUpdated() {
     return;
   }
 
-  const formattedDate = new Intl.DateTimeFormat("en-US", {
+  const date = new Intl.DateTimeFormat("en-US", {
     dateStyle: "medium",
     timeStyle: "medium"
   }).format(new Date());
 
-  elements.lastUpdated.textContent = `Last update: ${formattedDate}`;
+  elements.lastUpdated.textContent = `Last update: ${date}`;
 }
 
 async function loadMarketData() {
@@ -251,14 +251,14 @@ async function loadMarketData() {
   setStatus("loading", "Updating prices...");
 
   try {
-    const [crypto, usdToman, goldOunceUsd] = await Promise.all([
+    const [crypto, usdToman, gold18Toman] = await Promise.all([
       getCryptoPrices(),
       getUsdToman(),
-      getGoldPrice()
+      getIran18KGoldToman()
     ]);
 
     renderCrypto(crypto);
-    renderGoldAndIranRates(usdToman, goldOunceUsd);
+    renderIranPrices(usdToman, gold18Toman);
     updateLastUpdated();
 
     setStatus("", "Market updated");
@@ -278,5 +278,7 @@ loadMarketData();
 
 /*
   Refresh every 60 seconds.
+  The Iran source itself updates less frequently,
+  so displayed Iran prices may not change every minute.
 */
 setInterval(loadMarketData, 60 * 1000);
